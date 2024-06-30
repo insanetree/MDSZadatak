@@ -1,0 +1,26 @@
+version: "3"
+networks:
+  app_network:
+  admin_network:
+
+services:
+  database:
+    image: mariadb
+    ports:
+      - 3306:3306
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+    networks:
+      - app_network
+      - admin_network
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d
+  
+  phpmyadmin:
+    image: phpmyadmin
+    ports:
+      - 8080:80
+    environment:
+      - PMA_ARBITRARY=1
+    networks:
+      - admin_network

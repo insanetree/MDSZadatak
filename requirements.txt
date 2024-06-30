@@ -1,2 +1,6 @@
 flask
 flask_sqlalchemy
+
+pymysql
+pandas
+openpyxl
