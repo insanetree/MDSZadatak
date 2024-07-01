@@ -21,6 +21,7 @@ select_query = """
 SELECT id, firstname, lastname, username, email, salary
 FROM employee
 WHERE
+	(id = %s OR %s IS NULL) AND
 	(firstname = %s OR %s IS NULL) AND
 	(lastname = %s OR %s IS NULL) AND
 	(username = %s OR %s IS NULL) AND
@@ -28,50 +29,115 @@ WHERE
 	(salary = %s OR %s IS NULL);
 """
 
+insert_query = """
+INSERT INTO employee (firstname, lastname, username, email, salary)
+VALUES (%s, %s, %s, %s, %s);
+"""
+
+update_query = """
+UPDATE employee
+SET firstname = %s, lastname = %s, username = %s, email = %s, salary = %s
+WHERE id = %s
+"""
+
+delete_query = """
+DELETE FROM employee
+WHERE id = %s
+"""
+
 @zaposleni_bp.route("/", methods=["GET", "POST", "PUT", "DELETE"])
 def crud():
-	if request.method == "GET":
-		id        = None if "id" not in request.args else request.args["id"]
-		firstname = None if "firstname" not in request.args else request.args["firstname"]
-		lastname  = None if "lastname" not in request.args else request.args["lastname"]
-		username  = None if "username" not in request.args else request.args["username"]
-		email     = None if "email" not in request.args else request.args["email"]
-		salary    = None if "salary" not in request.args else request.args["salary"]
-		connection = get_db_connection()
-		cursor = connection.cursor(pymysql.cursors.DictCursor)
-		cursor.execute(select_query, (
-			firstname, firstname,
-			lastname, lastname,
-			username, username,
-			email, email,
-			salary, salary
-		))
-		result = cursor.fetchall()
-		print(result)
-	if request.method == "POST":
-		firstname = None if "firstname" not in request.json else request.json["firstname"]
-		lastname  = None if "lastname" not in request.json else request.json["lastname"]
-		username  = None if "username" not in request.json else request.json["username"]
-		email     = None if "email" not in request.json else request.json["email"]
-		salary    = None if "salary" not in request.json else request.json["salary"]
-		if None in [firstname, lastname, username, email, salary]:
-			return "", 400 # Bad Request
-		
-	if request.method == "PUT":
-		id        = None if "id" not in request.json else request.json["id"]
-		firstname = None if "firstname" not in request.json else request.json["firstname"]
-		lastname  = None if "lastname" not in request.json else request.json["lastname"]
-		username  = None if "username" not in request.json else request.json["username"]
-		email     = None if "email" not in request.json else request.json["email"]
-		salary    = None if "salary" not in request.json else request.json["salary"]
+	with get_db_connection() as connection:
+		with connection.cursor(pymysql.cursors.DictCursor) as cursor:
+			if request.method == "GET":
+				id        = None if "id" not in request.args else request.args["id"]
+				firstname = None if "firstname" not in request.args else request.args["firstname"]
+				lastname  = None if "lastname" not in request.args else request.args["lastname"]
+				username  = None if "username" not in request.args else request.args["username"]
+				email     = None if "email" not in request.args else request.args["email"]
+				salary    = None if "salary" not in request.args else request.args["salary"]
+				cursor.execute(select_query, (
+					id, id,
+					firstname, firstname,
+					lastname, lastname,
+					username, username,
+					email, email,
+					salary, salary
+				))
+				result = cursor.fetchall()
+				if len(result) == 0:
+					return "", 204
+				return result, 200
+			if request.method == "POST":
+				firstname = None if "firstname" not in request.json else request.json["firstname"]
+				lastname  = None if "lastname" not in request.json else request.json["lastname"]
+				username  = None if "username" not in request.json else request.json["username"]
+				email     = None if "email" not in request.json else request.json["email"]
+				salary    = None if "salary" not in request.json else request.json["salary"]
+				if None in [firstname, lastname, username, email, salary]:
+					return "", 400 # Bad Request
+				try:
+					cursor.execute(insert_query, (firstname, lastname, username, email, salary))
+					connection.commit()
+					print(cursor.fetchall())
+				except pymysql.err.IntegrityError:
+					return "", 409 # Conflict
+				except pymysql.err.DataError:
+					return "", 400 # Bad Request
+				
+			if request.method == "PUT":
+				id = None if "id" not in request.json else request.json["id"]
+				if id == None:
+					return "", 400
+				
+				try:
+					cursor.execute(select_query, (
+						id, id,
+						None, None,
+						None, None,
+						None, None,
+						None, None,
+						None, None
+					))
+					employee = cursor.fetchone()
+					if employee is None:
+						return "", 404 # Not Found
+					firstname = employee["firstname"] if "firstname" not in request.json else request.json["firstname"]
+					lastname  = employee["lastname"] if "lastname" not in request.json else request.json["lastname"]
+					username  = employee["username"] if "username" not in request.json else request.json["username"]
+					email     = employee["email"] if "email" not in request.json else request.json["email"]
+					salary    = employee["salary"] if "salary" not in request.json else request.json["salary"]
+					cursor.execute(update_query, (firstname, lastname, username, email, salary, id))
+					connection.commit()
 
-		if id == None:
-			return "", 400
-	if request.method == "DELETE":
-		id = None if "id" not in request.json else request.json["id"]
-		if id == None:
-			return "", 400
-		
+					return employee, 200
+				except pymysql.err.IntegrityError:
+					return "", 409 # Conflict
+				except pymysql.err.DataError:
+					return "", 400 # Bad Request
+			if request.method == "DELETE":
+				id = None if "id" not in request.json else request.json["id"]
+				if id == None:
+					return "", 400
+				try:
+					cursor.execute(select_query, (
+						id, id,
+						None, None,
+						None, None,
+						None, None,
+						None, None,
+						None, None
+					))
+					employee = cursor.fetchone()
+					if employee is None:
+						return "", 404 # Not Found
+					cursor.execute(delete_query, (id))
+					connection.commit()
+					return "", 204 # No Content
+				except pymysql.err.IntegrityError:
+					return "", 409 # Conflict
+				except pymysql.err.DataError:
+					return "", 400 # Bad Request
 
 	return "error", 405
 
@@ -102,7 +168,7 @@ def third_highest_salary():
 def like_a():
 	connection = get_db_connection()
 	cursor = connection.cursor()
-	query = "SELECT firstname, lastname, username, email, id, salary FROM employee where firstname LIKE \"a%\""
+	query = "SELECT firstname, lastname, username, email, id, salary FROM employee WHERE firstname LIKE \"a%\""
 	cursor.execute(query)
 	result = cursor.fetchall()
 	list = []
