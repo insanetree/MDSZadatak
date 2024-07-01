@@ -80,6 +80,7 @@ def crud():
 					cursor.execute(insert_query, (firstname, lastname, username, email, salary))
 					connection.commit()
 					print(cursor.fetchall())
+					return "", 201
 				except pymysql.err.IntegrityError:
 					return "", 409 # Conflict
 				except pymysql.err.DataError:
