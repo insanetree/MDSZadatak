@@ -109,7 +109,15 @@ def crud():
 					salary    = employee["salary"] if "salary" not in request.json else request.json["salary"]
 					cursor.execute(update_query, (firstname, lastname, username, email, salary, id))
 					connection.commit()
-
+					cursor.execute(select_query, (
+						id, id,
+						None, None,
+						None, None,
+						None, None,
+						None, None,
+						None, None
+					))
+					employee = cursor.fetchone()
 					return employee, 200
 				except pymysql.err.IntegrityError:
 					return "", 409 # Conflict
