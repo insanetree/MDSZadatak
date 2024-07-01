@@ -35,8 +35,8 @@ CREATE TABLE IF NOT EXISTS `employee` (
   `id` int(64) NOT NULL AUTO_INCREMENT,
   `firstname` varchar(20) NOT NULL,
   `lastname` varchar(20) NOT NULL,
-  `username` varchar(20) NOT NULL,
-  `email` varchar(50) NOT NULL,
+  `username` varchar(20) NOT NULL UNIQUE,
+  `email` varchar(50) NOT NULL UNIQUE,
   `salary` int(11) NOT NULL,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
